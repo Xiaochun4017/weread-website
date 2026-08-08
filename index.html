@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微信读书 · 阅读让生活更美好</title>
+  <meta name="description" content="微信读书主题网站 — 阅读数据看板、书架展示、读书笔记，记录每一次阅读旅程。">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script>initPage("home");</script>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1>📖 好书，一生相伴</h1>
+      <p>微信读书，海量正版图书、高品质有声内容，<br>让阅读融入生活每一个角落。</p>
+      <div class="hero-stats" id="heroStats"></div>
+      <div style="margin-top: 32px;">
+        <a href="dashboard.html" class="btn btn-primary">查看阅读数据 →</a>
+        <a href="shelf.html" class="btn btn-outline" style="margin-left: 12px;">浏览书架</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="container">
+    <!-- 功能特性 -->
+    <div class="section">
+      <h2 class="section-title">为什么选择微信读书</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📚</div>
+          <div class="feature-title">海量正版图书</div>
+          <div class="feature-desc">覆盖小说、文学、历史、哲学、科技等领域，数十万册正版电子书随时阅读。</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎧</div>
+          <div class="feature-title">高品质有声内容</div>
+          <div class="feature-desc">专业演播的有声书、广播剧，让阅读不受场景限制，通勤、运动时也能"读书"。</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">✍️</div>
+          <div class="feature-title">划线与笔记</div>
+          <div class="feature-desc">阅读中随时划线、写想法，所有笔记自动同步，可按书籍分类整理导出。</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <div class="feature-title">阅读数据统计</div>
+          <div class="feature-desc">记录阅读时长、天数、偏好分类、偏好时段，用数据看见自己的阅读成长。</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <div class="feature-title">社交阅读</div>
+          <div class="feature-desc">查看好友在读什么，分享书评和想法，在阅读中发现同好。</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🏆</div>
+          <div class="feature-title">阅读排行榜</div>
+          <div class="feature-desc">每周好友阅读排行，让阅读更有动力。阅读时长可兑换无限卡，免费读书。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 阅读理念 -->
+    <div class="section">
+      <h2 class="section-title">阅读的力量</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+        <div class="card" style="border-left: 4px solid var(--weread-green);">
+          <h3 style="font-size: 16px; margin-bottom: 12px;">🌱 阅读改变认知</h3>
+          <p style="font-size: 14px; color: var(--weread-text-secondary); line-height: 1.8;">每一本好书都是一扇新窗户。从科幻到哲学，从历史到心理学，阅读让我们看见不一样的世界，理解不一样的思想。</p>
+        </div>
+        <div class="card" style="border-left: 4px solid #ffa726;">
+          <h3 style="font-size: 16px; margin-bottom: 12px;">⏰ 阅读重塑习惯</h3>
+          <p style="font-size: 14px; color: var(--weread-text-secondary); line-height: 1.8;">每天 30 分钟阅读，一年就是 180+ 小时。微信读书记录你的每一次阅读，让坚持变成习惯，让习惯变成成长。</p>
+        </div>
+        <div class="card" style="border-left: 4px solid #42a5f5;">
+          <h3 style="font-size: 16px; margin-bottom: 12px;">💬 阅读连接彼此</h3>
+          <p style="font-size: 14px; color: var(--weread-text-secondary); line-height: 1.8;">划线、想法、书评——阅读不再孤独。你的每一条笔记都可能触达另一个灵魂，每一篇书评都可能引发一场对话。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 热门划线 -->
+    <div class="section">
+      <h2 class="section-title">🔥 热门划线</h2>
+      <div id="hotHighlights"></div>
+    </div>
+
+    <!-- 快速入口 -->
+    <div class="section">
+      <h2 class="section-title">快速入口</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+        <a href="dashboard.html" class="card" style="text-decoration: none; color: inherit; text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 12px;">📊</div>
+          <h3 style="font-size: 18px;">阅读数据看板</h3>
+          <p style="font-size: 14px; color: var(--weread-text-secondary); margin-top: 8px;">阅读时长、分类偏好、时段分析、读书排行</p>
+        </a>
+        <a href="shelf.html" class="card" style="text-decoration: none; color: inherit; text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 12px;">📚</div>
+          <h3 style="font-size: 18px;">我的书架</h3>
+          <p style="font-size: 14px; color: var(--weread-text-secondary); margin-top: 8px;">86 本书，42 本已读完，探索更多好书</p>
+        </a>
+        <a href="notes.html" class="card" style="text-decoration: none; color: inherit; text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 12px;">✍️</div>
+          <h3 style="font-size: 18px;">读书笔记</h3>
+          <p style="font-size: 14px; color: var(--weread-text-secondary); margin-top: 8px;">1280 条笔记，28 本有笔记的书</p>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Hero 统计
+    const overall = WEREAD_DATA.readData.overall;
+    document.getElementById('heroStats').innerHTML = `
+      <div class="hero-stat"><div class="num">${Math.round(overall.totalReadTime / 3600)}</div><div class="label">总阅读时长(小时)</div></div>
+      <div class="hero-stat"><div class="num">${overall.readDays}</div><div class="label">阅读天数</div></div>
+      <div class="hero-stat"><div class="num">${overall.readStat[0].counts}</div><div class="label">读过</div></div>
+      <div class="hero-stat"><div class="num">${overall.readStat[1].counts}</div><div class="label">读完</div></div>
+    `;
+
+    // 热门划线
+    const highlights = WEREAD_DATA.bestBookmarks["3300045871"] || [];
+    document.getElementById('hotHighlights').innerHTML = highlights.map(h => `
+      <div class="hot-highlight">
+        <div class="hot-highlight-text">"${h.markText}"</div>
+        <div class="hot-highlight-count">🔥 ${h.totalCount.toLocaleString()} 人划线</div>
+      </div>
+    `).join('');
+  </script>
+</body>
+</html>

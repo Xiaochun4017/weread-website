@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>读书笔记 · 微信读书</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script>initPage("notes");</script>
+
+  <div class="container">
+    <h1 class="page-title">✍️ 读书笔记</h1>
+    <p class="page-subtitle" id="notesSummary"></p>
+
+    <!-- 笔记统计 -->
+    <div class="stats-grid" id="notesStats"></div>
+
+    <!-- 笔记筛选 -->
+    <div class="filter-bar" id="notesFilterBar"></div>
+
+    <!-- 热门划线 -->
+    <div class="section">
+      <h2 class="section-title">🔥 热门划线</h2>
+      <div id="hotHighlights"></div>
+    </div>
+
+    <!-- 笔记内容 -->
+    <div class="section">
+      <h2 class="section-title">📚 按书籍浏览笔记</h2>
+      <div id="notesContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const notebooks = WEREAD_DATA.notebooks;
+    const noteDetails = WEREAD_DATA.noteDetails;
+
+    // 笔记总数
+    document.getElementById('notesSummary').textContent =
+      `共 ${notebooks.totalNoteCount} 条笔记，来自 ${notebooks.totalBookCount} 本书`;
+
+    // 统计卡片
+    let totalReviews = 0, totalNotes = 0, totalBookmarks = 0;
+    notebooks.books.forEach(b => {
+      totalReviews += b.reviewCount;
+      totalNotes += b.noteCount;
+      totalBookmarks += b.bookmarkCount;
+    });
+
+    document.getElementById('notesStats').innerHTML = `
+      <div class="stat-card">
+        <div class="icon">📝</div>
+        <div class="value">${notebooks.totalNoteCount}</div>
+        <div class="label">笔记总数</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">✍️</div>
+        <div class="value">${totalReviews}</div>
+        <div class="label">想法/点评</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">📌</div>
+        <div class="value">${totalNotes}</div>
+        <div class="label">划线</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">🔖</div>
+        <div class="value">${totalBookmarks}</div>
+        <div class="label">书签</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">📚</div>
+        <div class="value">${notebooks.totalBookCount}</div>
+        <div class="label">有笔记的书</div>
+      </div>
+    `;
+
+    // 筛选栏
+    const filterItems = ['全部', ...notebooks.books.map(b => b.book.title)];
+    document.getElementById('notesFilterBar').innerHTML = filterItems.map((f, i) =>
+      `<div class="filter-chip ${i === 0 ? 'active' : ''}" onclick="filterNotes('${i}', this)">${f}</div>`
+    ).join('');
+
+    // 热门划线
+    const highlights = WEREAD_DATA.bestBookmarks["3300045871"] || [];
+    document.getElementById('hotHighlights').innerHTML = highlights.map(h => `
+      <div class="hot-highlight">
+        <div class="hot-highlight-text">"${h.markText}"</div>
+        <div class="hot-highlight-count">🔥 ${h.totalCount.toLocaleString()} 人划线</div>
+      </div>
+    `).join('');
+
+    // 渲染笔记
+    function renderNotes(filterIndex) {
+      const booksToShow = filterIndex === 0
+        ? notebooks.books
+        : [notebooks.books[filterIndex - 1]];
+
+      document.getElementById('notesContent').innerHTML = booksToShow.map(nb => {
+        const detail = noteDetails[nb.bookId];
+        const totalNotes = nb.reviewCount + nb.noteCount + nb.bookmarkCount;
+
+        // 按章节分组划线
+        const bookmarksByChapter = {};
+        if (detail && detail.bookmarks) {
+          detail.bookmarks.forEach(b => {
+            const ch = b.chapterTitle || '未分类';
+            if (!bookmarksByChapter[ch]) bookmarksByChapter[ch] = [];
+            bookmarksByChapter[ch].push(b);
+          });
+        }
+
+        return `
+          <div class="notes-book">
+            <div class="notes-book-header">
+              <div style="font-size: 40px;">📖</div>
+              <div>
+                <div class="notes-book-title">${nb.book.title}</div>
+                <div class="notes-book-author">${nb.book.author}</div>
+              </div>
+              <div class="notes-count">
+                ${totalNotes} 条笔记 · 进度 ${nb.readingProgress}%
+                ${nb.markedStatus ? ' · ✅ 已读完' : ''}
+              </div>
+            </div>
+
+            ${detail ? Object.entries(bookmarksByChapter).map(([ch, marks]) => `
+              <div style="margin-bottom: 20px;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--weread-text-secondary); margin-bottom: 8px; padding-left: 4px;">
+                  📖 ${ch}
+                </div>
+                ${marks.map(m => `
+                  <div class="note-item">
+                    <div class="note-text highlight">"${m.markText}"</div>
+                    <div class="note-meta">${formatTimestamp(m.createTime)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            `).join('') : '<p style="color: var(--weread-text-tertiary); padding: 16px;">暂无笔记内容</p>'}
+
+            ${detail && detail.reviews && detail.reviews.length > 0 ? `
+              <div style="margin-top: 16px;">
+                <div style="font-size: 14px; font-weight: 600; color: var(--weread-text-secondary); margin-bottom: 8px; padding-left: 4px;">
+                  💭 想法与点评
+                </div>
+                ${detail.reviews.map(r => `
+                  <div class="note-item" style="border-left-color: #ffa726;">
+                    ${r.chapterName ? `<div class="note-chapter">${r.chapterName}</div>` : ''}
+                    ${r.star > 0 ? `<div style="margin-bottom: 6px;">${'⭐'.repeat(r.star)}</div>` : ''}
+                    <div class="note-review">${r.content}</div>
+                    <div class="note-meta">${formatTimestamp(r.createTime)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    renderNotes(0);
+
+    // 筛选
+    window.filterNotes = function(index, el) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      renderNotes(Number(index));
+    };
+  </script>
+</body>
+</html>

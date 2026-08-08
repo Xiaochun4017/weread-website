@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的书架 · 微信读书</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script>initPage("shelf");</script>
+
+  <div class="container">
+    <h1 class="page-title">📚 我的书架</h1>
+    <p class="page-subtitle" id="shelfSummary"></p>
+
+    <!-- 筛选栏 -->
+    <div class="filter-bar" id="filterBar"></div>
+
+    <!-- 书架网格 -->
+    <div class="shelf-grid" id="shelfGrid"></div>
+
+    <!-- 有声书 -->
+    <div class="section" id="albumsSection" style="display: none;">
+      <h2 class="section-title">🎧 有声书 / 专辑</h2>
+      <div class="shelf-grid" id="albumsGrid"></div>
+    </div>
+
+    <!-- 书架统计 -->
+    <div class="section">
+      <h2 class="section-title">📈 书架统计</h2>
+      <div class="stats-grid" id="shelfStats"></div>
+    </div>
+  </div>
+
+  <!-- 书籍详情弹窗 -->
+  <div id="bookModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:200; justify-content:center; align-items:center;" onclick="if(event.target===this) this.style.display='none'">
+    <div class="card" style="max-width: 500px; width: 90%; padding: 0; overflow: hidden;" id="modalContent"></div>
+  </div>
+
+  <script>
+    const shelf = WEREAD_DATA.shelf;
+    const allBooks = shelf.books;
+    const albums = shelf.albums || [];
+    const mp = shelf.mp;
+
+    // 书架总数
+    const totalShelf = allBooks.length + albums.length + (mp ? 1 : 0);
+    document.getElementById('shelfSummary').textContent =
+      `书架共 ${totalShelf} 个条目：${allBooks.length} 本电子书 + ${albums.length} 个有声书${mp ? ' + 文章收藏' : ''}`;
+
+    // 分类提取
+    const categories = [...new Set(allBooks.map(b => b.category))].sort();
+    const filters = ['全部', '已读完', '在读', '私密', ...categories];
+
+    // 渲染筛选栏
+    document.getElementById('filterBar').innerHTML = filters.map((f, i) =>
+      `<div class="filter-chip ${i === 0 ? 'active' : ''}" onclick="filterBooks('${f}', this)">${f}</div>`
+    ).join('');
+
+    // 渲染书籍
+    function renderBooks(books) {
+      document.getElementById('shelfGrid').innerHTML = books.map(book => {
+        const tags = [];
+        if (book.isTop) tags.push('<span class="book-tag top">📌 置顶</span>');
+        if (book.finishReading) tags.push('<span class="book-tag finished">✅ 已读完</span>');
+        else tags.push('<span class="book-tag reading">📖 在读</span>');
+        if (book.secret) tags.push('<span class="book-tag secret">🔒 私密</span>');
+
+        return `
+          <div class="book-card" onclick="showBookDetail('${book.bookId}')">
+            <div class="book-cover">${book.cover.match(/1f4d[0-9a-f]/)?.[0] ? '📖' : '📕'}</div>
+            <div class="book-info">
+              <div class="book-title">${book.title}</div>
+              <div class="book-author">${book.author}</div>
+              <div class="book-meta">${tags.join('')}</div>
+              <div style="font-size: 11px; color: var(--weread-text-tertiary); margin-top: 4px;">${formatTimestamp(book.readUpdateTime)}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    renderBooks(allBooks);
+
+    // 筛选逻辑
+    window.filterBooks = function(filter, el) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+
+      let filtered = allBooks;
+      if (filter === '已读完') filtered = allBooks.filter(b => b.finishReading);
+      else if (filter === '在读') filtered = allBooks.filter(b => !b.finishReading);
+      else if (filter === '私密') filtered = allBooks.filter(b => b.secret);
+      else if (filter !== '全部') filtered = allBooks.filter(b => b.category === filter);
+
+      renderBooks(filtered);
+    };
+
+    // 渲染有声书
+    if (albums.length > 0) {
+      document.getElementById('albumsSection').style.display = 'block';
+      document.getElementById('albumsGrid').innerHTML = albums.map(a => {
+        const info = a.albumInfo;
+        return `
+          <div class="book-card">
+            <div class="book-cover" style="background: #e3f2fd; font-size: 48px;">🎧</div>
+            <div class="book-info">
+              <div class="book-title">${info.name}</div>
+              <div class="book-author">${info.authorName}</div>
+              <div class="book-meta">
+                <span class="book-tag">${info.trackCount} 集</span>
+                <span class="book-tag finished">${info.finishStatus}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 书架统计
+    const finishedCount = allBooks.filter(b => b.finishReading).length;
+    const readingCount = allBooks.filter(b => !b.finishReading).length;
+    const secretCount = allBooks.filter(b => b.secret).length + albums.filter(a => a.albumInfoExtra?.secret).length + (mp ? 1 : 0);
+    const publicCount = totalShelf - secretCount;
+
+    document.getElementById('shelfStats').innerHTML = `
+      <div class="stat-card">
+        <div class="icon">📚</div>
+        <div class="value">${totalShelf}</div>
+        <div class="label">书架总数</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">✅</div>
+        <div class="value">${finishedCount}</div>
+        <div class="label">已读完</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">📖</div>
+        <div class="value">${readingCount}</div>
+        <div class="label">在读中</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">🎧</div>
+        <div class="value">${albums.length}</div>
+        <div class="label">有声书</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">🔒</div>
+        <div class="value">${secretCount}</div>
+        <div class="label">私密阅读</div>
+      </div>
+    `;
+
+    // 书籍详情弹窗
+    window.showBookDetail = function(bookId) {
+      const book = allBooks.find(b => b.bookId === bookId);
+      if (!book) return;
+
+      // 查找笔记数据
+      const notebook = WEREAD_DATA.notebooks.books.find(b => b.bookId === bookId);
+      const noteDetail = WEREAD_DATA.noteDetails[bookId];
+
+      document.getElementById('modalContent').innerHTML = `
+        <div style="background: linear-gradient(135deg, #07c160, #06ad56); padding: 32px 24px; color: #fff; text-align: center;">
+          <div style="font-size: 56px; margin-bottom: 12px;">📖</div>
+          <h2 style="font-size: 22px; margin-bottom: 4px;">${book.title}</h2>
+          <p style="opacity: 0.9;">${book.author}</p>
+        </div>
+        <div style="padding: 24px;">
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+            <span class="book-tag" style="font-size: 13px;">${book.category}</span>
+            ${book.finishReading ? '<span class="book-tag finished">✅ 已读完</span>' : '<span class="book-tag reading">📖 在读</span>'}
+            ${book.secret ? '<span class="book-tag secret">🔒 私密</span>' : ''}
+            ${book.isTop ? '<span class="book-tag top">📌 置顶</span>' : ''}
+          </div>
+          <div style="font-size: 14px; color: var(--weread-text-secondary); margin-bottom: 16px;">
+            📅 最近阅读：${formatTimestamp(book.readUpdateTime)}
+          </div>
+          ${notebook ? `
+            <div style="background: var(--weread-green-light); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+              <div style="font-weight: 600; color: var(--weread-green); margin-bottom: 8px;">📝 笔记统计</div>
+              <div style="display: flex; gap: 24px; font-size: 14px;">
+                <span>✍️ 想法/点评：${notebook.reviewCount}</span>
+                <span>📌 划线：${notebook.noteCount}</span>
+                <span>🔖 书签：${notebook.bookmarkCount}</span>
+              </div>
+              <div style="margin-top: 8px;">
+                <div style="font-size: 13px; color: var(--weread-text-secondary);">阅读进度</div>
+                <div class="progress-bar"><div class="progress-fill" style="width: ${notebook.readingProgress}%;"></div></div>
+              </div>
+            </div>
+          ` : ''}
+          ${noteDetail && noteDetail.bookmarks.length > 0 ? `
+            <div style="margin-bottom: 16px;">
+              <div style="font-weight: 600; margin-bottom: 8px;">📌 最新划线</div>
+              ${noteDetail.bookmarks.slice(0, 3).map(b => `
+                <div class="note-item" style="margin-left: 0; border-left-width: 3px; padding: 10px 14px;">
+                  <div class="note-chapter">${b.chapterTitle}</div>
+                  <div class="note-text highlight">"${b.markText}"</div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          <a href="notes.html" class="btn" style="background: var(--weread-green); color: #fff; width: 100%; text-align: center;">查看全部笔记 →</a>
+        </div>
+      `;
+      document.getElementById('bookModal').style.display = 'flex';
+    };
+  </script>
+</body>
+</html>

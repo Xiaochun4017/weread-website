@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>阅读数据看板 · 微信读书</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <script src="js/data.js"></script>
+  <script src="js/common.js"></script>
+  <script>initPage("dashboard");</script>
+
+  <div class="container">
+    <h1 class="page-title">📊 阅读数据看板</h1>
+    <p class="page-subtitle">用数据看见你的阅读成长 — 阅读时长、分类偏好、时段分析、读书排行</p>
+
+    <!-- 统计卡片 -->
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <!-- 图表区 -->
+    <div class="chart-grid">
+      <!-- 年度阅读趋势 -->
+      <div class="chart-card full-width">
+        <h3>📅 年度阅读时长趋势（按月）</h3>
+        <div class="chart-container"><canvas id="yearlyChart"></canvas></div>
+      </div>
+
+      <!-- 分类偏好 -->
+      <div class="chart-card">
+        <h3>📚 偏好阅读分类</h3>
+        <div class="chart-container"><canvas id="categoryChart"></canvas></div>
+      </div>
+
+      <!-- 时段偏好 -->
+      <div class="chart-card">
+        <h3>⏰ 阅读时段分布</h3>
+        <div class="chart-container"><canvas id="timeChart"></canvas></div>
+      </div>
+
+      <!-- 文字 vs 听书 -->
+      <div class="chart-card">
+        <h3>📖 文字阅读 vs 🎧 听书</h3>
+        <div class="chart-container"><canvas id="ratioChart"></canvas></div>
+      </div>
+
+      <!-- 本月每日阅读 -->
+      <div class="chart-card">
+        <h3>📆 本月每日阅读时长</h3>
+        <div class="chart-container"><canvas id="monthlyChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 读书排行 -->
+    <div class="section">
+      <h2 class="section-title">🏆 读得最多的书</h2>
+      <div class="card">
+        <ul class="ranking-list" id="rankingList"></ul>
+      </div>
+    </div>
+
+    <!-- 偏好作者 -->
+    <div class="section">
+      <h2 class="section-title">✨ 偏好作者</h2>
+      <div class="card" id="authorList"></div>
+    </div>
+
+    <!-- 偏好出版社 -->
+    <div class="section">
+      <h2 class="section-title">🏛️ 偏好出版社</h2>
+      <div class="card" id="publisherList"></div>
+    </div>
+  </div>
+
+  <script>
+    const annually = WEREAD_DATA.readData.annually;
+    const overall = WEREAD_DATA.readData.overall;
+    const monthly = WEREAD_DATA.readData.monthly;
+
+    // ---- 统计卡片 ----
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card">
+        <div class="icon">⏱️</div>
+        <div class="value">${Math.round(overall.totalReadTime / 3600)}h</div>
+        <div class="label">总阅读时长</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">📅</div>
+        <div class="value">${overall.readDays}</div>
+        <div class="label">阅读天数</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">📖</div>
+        <div class="value">${overall.readStat[0].counts}</div>
+        <div class="label">读过</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">✅</div>
+        <div class="value">${overall.readStat[1].counts}</div>
+        <div class="label">读完</div>
+      </div>
+      <div class="stat-card">
+        <div class="icon">✍️</div>
+        <div class="value">${overall.readStat[3].counts}</div>
+        <div class="label">笔记数</div>
+      </div>
+    `;
+
+    // ---- Chart.js 全局配置 ----
+    Chart.defaults.font.family = "'-apple-system', 'PingFang SC', sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#8a8a8a';
+    Chart.defaults.borderColor = '#e8e8e8';
+
+    const wereadGreen = '#07c160';
+    const wereadGreenBg = 'rgba(7, 193, 96, 0.12)';
+    const chartColors = ['#07c160', '#42a5f5', '#ffa726', '#ab47bc', '#ef5350', '#66bb6a', '#5c6bc0', '#ffca28'];
+
+    // ---- 年度阅读趋势 ----
+    const yearKeys = Object.keys(annually.readTimes).sort((a, b) => Number(a) - Number(b));
+    const yearLabels = yearKeys.map(k => getMonthLabel(Number(k)));
+    const yearData = yearKeys.map(k => Math.round(annually.readTimes[k] / 3600 * 10) / 10);
+
+    new Chart(document.getElementById('yearlyChart'), {
+      type: 'line',
+      data: {
+        labels: yearLabels,
+        datasets: [{
+          label: '阅读时长(小时)',
+          data: yearData,
+          borderColor: wereadGreen,
+          backgroundColor: wereadGreenBg,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: wereadGreen,
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => c.parsed.y + ' 小时' } }
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { callback: v => v + 'h' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+
+    // ---- 分类偏好 ----
+    const catLabels = annually.preferCategory.map(c => c.categoryTitle);
+    const catData = annually.preferCategory.map(c => Math.round(c.readingTime / 3600 * 10) / 10);
+
+    new Chart(document.getElementById('categoryChart'), {
+      type: 'doughnut',
+      data: {
+        labels: catLabels,
+        datasets: [{
+          data: catData,
+          backgroundColor: chartColors,
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, padding: 10 } },
+          tooltip: { callbacks: { label: c => c.label + ': ' + c.parsed + ' 小时' } }
+        }
+      }
+    });
+
+    // ---- 时段偏好 ----
+    const timeLabels = [];
+    for (let i = 6; i < 6 + 24; i++) {
+      const h = i % 24;
+      timeLabels.push(h + ':00');
+    }
+    const timeData = annually.preferTime.map(s => Math.round(s / 60 * 10) / 10);
+
+    new Chart(document.getElementById('timeChart'), {
+      type: 'bar',
+      data: {
+        labels: timeLabels,
+        datasets: [{
+          label: '阅读时长(分钟)',
+          data: timeData,
+          backgroundColor: timeLabels.map((_, i) => {
+            // 夜间时段用深色
+            const h = (i + 6) % 24;
+            if (h >= 18 || h < 2) return '#06ad56';
+            if (h >= 6 && h < 12) return '#66bb6a';
+            return wereadGreen;
+          }),
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => c.parsed.y + ' 分钟' } }
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { callback: v => v + 'm' } },
+          x: { grid: { display: false }, ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12 } }
+        }
+      }
+    });
+
+    // ---- 文字 vs 听书 ----
+    new Chart(document.getElementById('ratioChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['文字阅读', '听书'],
+        datasets: [{
+          data: [overall.readRate, 100 - overall.readRate],
+          backgroundColor: [wereadGreen, '#ffa726'],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+          tooltip: { callbacks: { label: c => c.label + ': ' + c.parsed + '%' } }
+        }
+      }
+    });
+
+    // ---- 本月每日 ----
+    const monthKeys = Object.keys(monthly.readTimes).sort((a, b) => Number(a) - Number(b));
+    const monthLabels = monthKeys.map(k => {
+      const d = new Date(Number(k) * 1000);
+      return d.getDate() + '日';
+    });
+    const monthData = monthKeys.map(k => Math.round(monthly.readTimes[k] / 60 * 10) / 10);
+
+    new Chart(document.getElementById('monthlyChart'), {
+      type: 'bar',
+      data: {
+        labels: monthLabels,
+        datasets: [{
+          label: '阅读时长(分钟)',
+          data: monthData,
+          backgroundColor: wereadGreenBg,
+          borderColor: wereadGreen,
+          borderWidth: 1.5,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => c.parsed.y + ' 分钟' } }
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { callback: v => v + 'm' } },
+          x: { grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: 15 } }
+        }
+      }
+    });
+
+    // ---- 读书排行 ----
+    document.getElementById('rankingList').innerHTML = annually.readLongest.map((item, i) => `
+      <li class="ranking-item">
+        <div class="ranking-num ${i < 3 ? 'top3' : ''}">${i + 1}</div>
+        <div class="ranking-info">
+          <div class="ranking-title">${item.book.title}</div>
+          <div class="ranking-author">${item.book.author}</div>
+        </div>
+        <div class="ranking-time">${formatDuration(item.readTime)}</div>
+      </li>
+    `).join('');
+
+    // ---- 偏好作者 ----
+    document.getElementById('authorList').innerHTML = `
+      <ul class="ranking-list">
+        ${annually.preferAuthor.map((a, i) => `
+          <li class="ranking-item">
+            <div class="ranking-num ${i < 3 ? 'top3' : ''}">${i + 1}</div>
+            <div class="ranking-info">
+              <div class="ranking-title">${a.name}</div>
+              <div class="ranking-author">读过 ${a.count} 本</div>
+            </div>
+            <div class="ranking-time">${a.readTime}</div>
+          </li>
+        `).join('')}
+      </ul>
+    `;
+
+    // ---- 偏好出版社 ----
+    document.getElementById('publisherList').innerHTML = `
+      <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+        ${annually.preferPublisher.map(p => `
+          <div style="padding: 10px 20px; background: var(--weread-green-light); border-radius: 20px;">
+            <span style="font-weight: 600; color: var(--weread-green);">${p.name}</span>
+            <span style="color: var(--weread-text-secondary); margin-left: 8px;">${p.count} 本</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  </script>
+</body>
+</html>
