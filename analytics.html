@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📚 微信读书 · 可视化仪表盘</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #f0f2f5;
+  color: #1a1a2e;
+  line-height: 1.6;
+}
+.container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  padding: 40px 48px;
+  color: #fff;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 200px;
+  height: 200px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 50%;
+}
+.header h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; position: relative; z-index: 1; }
+.header .subtitle { font-size: 15px; opacity: 0.85; position: relative; z-index: 1; }
+
+/* Stats row */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.1); }
+.stat-icon {
+  width: 56px; height: 56px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+}
+.stat-card:nth-child(1) .stat-icon { background: #e8f4fd; }
+.stat-card:nth-child(2) .stat-icon { background: #e6f9e8; }
+.stat-card:nth-child(3) .stat-icon { background: #fff3e0; }
+.stat-card:nth-child(4) .stat-icon { background: #f3e5f5; }
+.stat-info .stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+.stat-info .stat-label { font-size: 13px; color: #888; margin-top: 2px; }
+
+/* Charts row */
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.chart-panel {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.chart-title { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 12px; padding-left: 4px; }
+
+/* Full-width chart */
+.chart-full {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  margin-bottom: 24px;
+}
+
+/* Reading section */
+.section-title {
+  font-size: 20px; font-weight: 700; color: #1a1a2e;
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+.section-title .badge {
+  font-size: 13px; font-weight: 500;
+  background: #ffe0b2; color: #e65100;
+  padding: 2px 10px; border-radius: 12px;
+}
+.book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.book-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  display: flex;
+  gap: 14px;
+  transition: transform 0.2s;
+}
+.book-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+.book-cover {
+  width: 64px; height: 88px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  flex-shrink: 0;
+  background: #f5f5f5;
+}
+.book-info { flex: 1; min-width: 0; }
+.book-title-card { font-size: 14px; font-weight: 600; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.book-author-card { font-size: 12px; color: #999; margin-top: 2px; }
+.progress-container { margin-top: 8px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 4px; }
+.progress-bar {
+  height: 8px; background: #f0f0f0;
+  border-radius: 4px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 4px;
+  transition: width 0.5s ease;
+}
+.progress-fill.low { background: linear-gradient(90deg, #ffd54f, #ffa726); }
+.progress-fill.mid { background: linear-gradient(90deg, #66bb6a, #43a047); }
+.progress-fill.high { background: linear-gradient(90deg, #42a5f5, #1e88e5); }
+
+/* Completed books */
+.completed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 32px; }
+.completed-card {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: transform 0.2s;
+}
+.completed-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,0.14); }
+.completed-cover {
+  width: 100%; height: 140px;
+  object-fit: cover;
+  background: #f5f5f5;
+}
+.completed-info { padding: 12px; }
+.completed-title-card { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.completed-author-card { font-size: 11px; color: #999; margin-top: 3px; }
+.completed-badge {
+  display: inline-block;
+  font-size: 11px;
+  background: #e8f5e9; color: #2e7d32;
+  padding: 2px 8px; border-radius: 8px;
+  margin-top: 6px;
+}
+
+/* Author leaderboard */
+.author-row {
+  display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 32px;
+}
+.author-chip {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  display: flex; align-items: center; gap: 10px;
+  min-width: 140px;
+}
+.author-rank {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+  color: #fff;
+}
+.author-rank.gold { background: linear-gradient(135deg, #f9a825, #f57f17); }
+.author-rank.silver { background: linear-gradient(135deg, #90a4ae, #546e7a); }
+.author-rank.bronze { background: linear-gradient(135deg, #ff8a65, #e64a19); }
+.author-rank.normal { background: #e0e0e0; color: #666; }
+.author-name { font-weight: 600; font-size: 14px; }
+.author-count { font-size: 12px; color: #999; }
+
+/* Footer */
+.footer { text-align: center; padding: 20px; color: #bbb; font-size: 12px; }
+
+@media (max-width: 768px) {
+  .container { padding: 12px; }
+  .header { padding: 24px; }
+  .header h1 { font-size: 22px; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
+  .book-grid { grid-template-columns: 1fr; }
+  .completed-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>📚 微信读书 · 可视化仪表盘</h1>
+    <div class="subtitle">书架共 151 本书 · 数据同步自微信读书</div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon">📖</div>
+      <div class="stat-info">
+        <div class="stat-value" id="stat-total">151</div>
+        <div class="stat-label">书架总数</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-info">
+        <div class="stat-value" id="stat-completed">6</div>
+        <div class="stat-label">已读完</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📖</div>
+      <div class="stat-info">
+        <div class="stat-value" id="stat-reading">29</div>
+        <div class="stat-label">在读中</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📚</div>
+      <div class="stat-info">
+        <div class="stat-value" id="stat-unread">116</div>
+        <div class="stat-label">待阅读</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="charts-row">
+    <div class="chart-panel">
+      <div class="chart-title">📊 阅读状态分布</div>
+      <div id="chart-status" style="height:320px;"></div>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-title">📂 分类统计</div>
+      <div id="chart-category" style="height:320px;"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="charts-row">
+    <div class="chart-panel">
+      <div class="chart-title">⏳ 在读进度分布</div>
+      <div id="chart-progress-dist" style="height:300px;"></div>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-title">👤 藏书最多的作者</div>
+      <div id="chart-author" style="height:300px;"></div>
+    </div>
+  </div>
+
+  <!-- 文学子分类 -->
+  <div class="chart-full">
+    <div class="chart-title">📝 文学类子分类构成</div>
+    <div id="chart-lit-sub" style="height:300px;"></div>
+  </div>
+
+  <!-- READING BOOKS -->
+  <div class="section-title">📖 在读中 <span class="badge" id="badge-reading">29 本</span></div>
+  <div class="book-grid" id="reading-grid"></div>
+
+  <!-- COMPLETED BOOKS -->
+  <div class="section-title">✅ 已读完 <span class="badge" style="background:#e8f5e9;color:#2e7d32;">6 本</span></div>
+  <div class="completed-grid" id="completed-grid"></div>
+
+  <!-- AUTHOR LEADERBOARD -->
+  <div class="section-title">🏆 作者排行榜</div>
+  <div class="author-row" id="author-row"></div>
+
+  <div class="footer">数据来源：微信读书 · 自动同步</div>
+
+</div>
+
+<script>
+// ===== DATA =====
+const DATA = {
+  total: 151, completed: 6, reading: 29, unread: 116, readingAvg: 14.8,
+  categories: [
+    {name:"文学",value:82},{name:"精品小说",value:24},{name:"个人成长",value:13},
+    {name:"人物传记",value:7},{name:"心理",value:5},{name:"哲学宗教",value:4},
+    {name:"历史",value:4},{name:"社会文化",value:3},{name:"漫画",value:1},{name:"童书",value:1},
+    {name:"科学技术",value:1},{name:"男生小说",value:1},{name:"其他",value:5}
+  ],
+  authors: [
+    {name:"季羡林",value:8},{name:"杨绛",value:4},{name:"白岩松",value:3},
+    {name:"王蒙",value:3},{name:"梁晓声",value:3},{name:"老舍",value:3},
+    {name:"路遥",value:3},{name:"刘同",value:2}
+  ],
+  litSub: [
+    {name:"散文杂著",value:54},{name:"经典作品",value:10},{name:"外国文学",value:7},
+    {name:"古典文学",value:4},{name:"古代诗词",value:2},{name:"文学鉴赏",value:2},
+    {name:"现代诗歌",value:2},{name:"纪实文学",value:1}
+  ],
+  progressRanges:[
+    {name:"0-10%",value:15},{name:"10%-25%",value:9},{name:"25%-50%",value:4},
+    {name:"50%-75%",value:1},{name:"75%-99%",value:0}
+  ],
+  readingBooks: [
+    {"title":"了凡四训","author":"[明]袁了凡","progress":51,"cover":"https://cdn.weread.qq.com/weread/cover/28/YueWen_914697/t6_YueWen_914697.jpg"},
+    {"title":"我的世界是安静的","author":"林徽因","progress":42,"cover":"https://cdn.weread.qq.com/weread/cover/28/YueWen_22478577/t6_YueWen_22478577.jpg"},
+    {"title":"杨绛：人生最曼妙的风景","author":"田梦","progress":39,"cover":"https://rescdn.qqmail.com/weread/cover/445/3300007445/t6_3300007445.jpg"},
+    {"title":"我们仨","author":"杨绛","progress":38,"cover":"https://res.weread.qq.com/wrepub/CB_APwDTsDT09h46xm6wx3lTBUR_parsecover"},
+    {"title":"茶之书","author":"冈仓天心","progress":35,"cover":"https://cdn.weread.qq.com/weread/cover/94/YueWen_624747/t6_YueWen_624747.jpg"},
+    {"title":"人生难得是从容","author":"老舍","progress":22,"cover":"https://cdn.weread.qq.com/weread/cover/79/YueWen_22515194/t6_YueWen_22515194.jpg"},
+    {"title":"人间温柔","author":"毕淑敏 张炜 范小青","progress":21,"cover":"https://cdn.weread.qq.com/weread/cover/86/yuewen_31681513/t6_yuewen_316815131709711100.jpg"},
+    {"title":"人间告白","author":"金鱼酱","progress":17,"cover":"https://cdn.weread.qq.com/weread/cover/80/YueWen_31617666/t6_YueWen_31617666.jpg"},
+    {"title":"读书就是回家（勇敢篇）","author":"麦家陪你读书","progress":15,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/603/35159603/t6_35159603.jpg"},
+    {"title":"陌上花开","author":"安意如","progress":12,"cover":"https://cdn.weread.qq.com/weread/cover/39/YueWen_215948/t6_YueWen_215948.jpg"},
+    {"title":"海边的房间","author":"黄丽群","progress":12,"cover":"https://cdn.weread.qq.com/weread/cover/87/YueWen_40109526/t6_YueWen_40109526.jpg"},
+    {"title":"36岁，人生半熟","author":"宽宽","progress":12,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/893/32070893/t6_32070893.jpg"},
+    {"title":"陈鲁豫：还是要相信","author":"陈鲁豫","progress":12,"cover":"https://cdn.weread.qq.com/weread/cover/9/cpPlatform_ht568HKfg1VpBrpP8ERpHs/t6_cpPlatform_ht568HKfg1VpBrpP8ERpHs.jpg"},
+    {"title":"我独自一人，却很自在","author":"[德]赫尔曼·黑塞","progress":11,"cover":"https://cdn.weread.qq.com/weread/cover/97/cpplatform_iynewruj5byboiro3y5pab/t6_cpplatform_iynewruj5byboiro3y5pab1751365145.jpg"},
+    {"title":"世界很喧嚣，做自己就好","author":"老杨的猫头鹰","progress":10,"cover":"https://cdn.weread.qq.com/weread/cover/55/cpplatform_r54fqjoestfaqpxp3bpk4k/t6_cpplatform_r54fqjoestfaqpxp3bpk4k1676600249.jpg"},
+    {"title":"终有一天你会懂","author":"琢磨先生","progress":9,"cover":"https://cdn.weread.qq.com/weread/cover/53/YueWen_22297573/t6_YueWen_22297573.jpg"},
+    {"title":"越独立，越高贵","author":"格姐","progress":9,"cover":"https://cdn.weread.qq.com/weread/cover/87/YueWen_26113659/t6_YueWen_26113659.jpg"},
+    {"title":"愿人生从容（精装典藏版）","author":"贾平凹","progress":8,"cover":"https://cdn.weread.qq.com/weread/cover/83/YueWen_907663/t6_YueWen_907663.jpg"},
+    {"title":"杨绛传：生活不易，保持优雅","author":"赵彤彤","progress":8,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/315/33276315/t6_33276315.jpg"},
+    {"title":"你不努力，谁也给不了你想要的生活","author":"杨红","progress":8,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/177/38395177/t6_38395177.jpg"},
+    {"title":"相信","author":"蔡磊","progress":7,"cover":"https://cdn.weread.qq.com/weread/cover/71/cpplatform_iheluiy1p49t13lmk5k4mb/t6_cpplatform_iheluiy1p49t13lmk5k4mb1680152716.jpg"},
+    {"title":"采桑子","author":"叶广芩","progress":6,"cover":"https://cdn.weread.qq.com/weread/cover/87/yuewen_346037/t6_yuewen_3460371689928500.jpg"},
+    {"title":"生命是孤独的旅程","author":"贾平凹","progress":6,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/519/91469519/t6_91469519.jpg"},
+    {"title":"人间值得一回游","author":"刘白羽","progress":5,"cover":"https://cdn.weread.qq.com/weread/cover/45/YueWen_40266858/t6_YueWen_40266858.jpg"},
+    {"title":"悲喜自渡","author":"季羡林","progress":5,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/606/34826606/t6_34826606.jpg"},
+    {"title":"朗读者（全3册）","author":"董卿","progress":5,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/3/913003/t6_913003.jpg"},
+    {"title":"人生海海","author":"麦家","progress":4,"cover":"https://cdn.weread.qq.com/weread/cover/72/YueWen_23539468/t6_YueWen_23539468.jpg"},
+    {"title":"董卿：在时光中优雅盛开","author":"纪云裳","progress":4,"cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/387/27211387/t6_27211387.jpg"},
+    {"title":"灵魂有香气的女子","author":"李筱懿","progress":4,"cover":"https://cdn.weread.qq.com/weread/cover/76/YueWen_22299651/t6_YueWen_22299651.jpg"}
+  ],
+  completedBooks: [
+    {"title":"人间值得","author":"[日]中村恒子","cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/289/27016289/t6_27016289.jpg"},
+    {"title":"杨绛：淡定从容，便是优雅","author":"刘颖","cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/702/25925702/t6_25925702.jpg"},
+    {"title":"云边有个小卖部","author":"张嘉佳","cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/486/24048486/t6_24048486.jpg"},
+    {"title":"解忧杂货店","author":"[日]东野圭吾","cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/116/23848116/t6_23848116.jpg"},
+    {"title":"追风筝的人","author":"[美]卡勒德·胡赛尼","cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/752/637752/t6_637752.jpg"},
+    {"title":"小王子","author":"[法]圣埃克苏佩里","cover":"https://wfqqreader-1252317822.image.myqcloud.com/cover/641/829641/t6_829641.jpg"}
+  ]
+};
+
+// ===== Build Reading Progress Cards =====
+const readingGrid = document.getElementById('reading-grid');
+DATA.readingBooks.forEach(b => {
+  let cls = b.progress > 50 ? 'high' : b.progress > 25 ? 'mid' : 'low';
+  const card = document.createElement('div');
+  card.className = 'book-card';
+  card.innerHTML = `
+    <img class="book-cover" src="${b.cover}" alt="${b.title}" onerror="this.style.display='none'" loading="lazy">
+    <div class="book-info">
+      <div class="book-title-card" title="${b.title}">${b.title}</div>
+      <div class="book-author-card">${b.author}</div>
+      <div class="progress-container">
+        <div class="progress-label"><span>阅读进度</span><span>${b.progress}%</span></div>
+        <div class="progress-bar"><div class="progress-fill ${cls}" style="width:${b.progress}%"></div></div>
+      </div>
+    </div>`;
+  readingGrid.appendChild(card);
+});
+
+// ===== Build Completed Books =====
+const completedGrid = document.getElementById('completed-grid');
+DATA.completedBooks.forEach(b => {
+  const card = document.createElement('div');
+  card.className = 'completed-card';
+  card.innerHTML = `
+    <img class="completed-cover" src="${b.cover}" alt="${b.title}" onerror="this.style.background='#f5f5f5'" loading="lazy">
+    <div class="completed-info">
+      <div class="completed-title-card" title="${b.title}">${b.title}</div>
+      <div class="completed-author-card">${b.author}</div>
+      <span class="completed-badge">✓ 已读完</span>
+    </div>`;
+  completedGrid.appendChild(card);
+});
+
+// ===== Build Author Leaderboard =====
+const authorRow = document.getElementById('author-row');
+DATA.authors.forEach((a, i) => {
+  let rankCls = i == 0 ? 'gold' : i == 1 ? 'silver' : i == 2 ? 'bronze' : 'normal';
+  let rankSymbol = i == 0 ? '🥇' : i == 1 ? '🥈' : i == 2 ? '🥉' : (i+1);
+  const chip = document.createElement('div');
+  chip.className = 'author-chip';
+  chip.innerHTML = `<div class="author-rank ${rankCls}">${rankSymbol}</div>
+    <div><div class="author-name">${a.name}</div><div class="author-count">${a.value} 本书</div></div>`;
+  authorRow.appendChild(chip);
+});
+
+// ===== CHARTS =====
+const baseOption = {
+  tooltip: { trigger: 'item' },
+  textStyle: { fontFamily: "-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif" }
+};
+
+// 1. Status Donut
+echarts.init(document.getElementById('chart-status')).setOption({
+  ...baseOption,
+  legend: { bottom: 0, textStyle: { fontSize: 13 } },
+  series: [{
+    type: 'pie', radius: ['55%', '80%'], center: ['50%', '45%'],
+    emphasis: { scaleSize: 8 },
+    label: { show: true, formatter: '{b}\n{d}%', fontSize: 12 },
+    data: [
+      {value: DATA.completed, name:'已读完', itemStyle:{color:'#66bb6a'}},
+      {value: DATA.reading, name:'在读中', itemStyle:{color:'#42a5f5'}},
+      {value: DATA.unread, name:'待阅读', itemStyle:{color:'#e0e0e0'}}
+    ]
+  }]
+});
+
+// 2. Category Bar
+echarts.init(document.getElementById('chart-category')).setOption({
+  ...baseOption,
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+  grid: { left: 100, right: 30, top: 10, bottom: 20 },
+  xAxis: { type: 'value', axisLabel: { fontSize: 11 } },
+  yAxis: { type: 'category', data: DATA.categories.map(c=>c.name).reverse(), inverse: true,
+    axisLabel: { fontSize: 12 } },
+  series: [{
+    type: 'bar', data: DATA.categories.map(c=>c.value).reverse(),
+    barWidth: 16,
+    itemStyle: {
+      color: new echarts.graphic.LinearGradient(0,0,1,0,[
+        {offset:0, color:'#667eea'},{offset:1, color:'#764ba2'}
+      ]),
+      borderRadius: [0,6,6,0]
+    }
+  }]
+});
+
+// 3. Progress Distribution
+echarts.init(document.getElementById('chart-progress-dist')).setOption({
+  ...baseOption,
+  tooltip: { trigger: 'axis' },
+  grid: { left: 50, right: 30, top: 10, bottom: 30 },
+  xAxis: { type: 'category', data: DATA.progressRanges.map(r=>r.name), axisLabel:{fontSize:12} },
+  yAxis: { type: 'value', name: '本', axisLabel:{fontSize:11} },
+  series: [{
+    type: 'bar', data: DATA.progressRanges.map(r=>r.value),
+    barWidth: 28,
+    itemStyle: { borderRadius: [6,6,0,0],
+      color: (p) => ['#ffd54f','#ffb74d','#66bb6a','#42a5f5','#1e88e5'][p.dataIndex]
+    },
+    label: { show: true, position: 'top', fontSize: 13, fontWeight: 600 }
+  }]
+});
+
+// 4. Author Bar (horizontal)
+echarts.init(document.getElementById('chart-author')).setOption({
+  ...baseOption,
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+  grid: { left: 80, right: 40, top: 10, bottom: 20 },
+  xAxis: { type: 'value', axisLabel: { fontSize: 11 } },
+  yAxis: { type: 'category', data: DATA.authors.map(a=>a.name).reverse(), inverse: true,
+    axisLabel: { fontSize: 12 } },
+  series: [{
+    type: 'bar', data: DATA.authors.map(a=>a.value).reverse(),
+    barWidth: 16,
+    itemStyle: {
+      color: new echarts.graphic.LinearGradient(0,0,1,0,[
+        {offset:0, color:'#f093fb'},{offset:1, color:'#f5576c'}
+      ]),
+      borderRadius: [0,6,6,0]
+    }
+  }]
+});
+
+// 5. Literature Sub-category
+echarts.init(document.getElementById('chart-lit-sub')).setOption({
+  ...baseOption,
+  tooltip: { trigger: 'item', formatter: '{b}: {c} 本 ({d}%)' },
+  series: [{
+    type: 'pie', radius: ['40%', '75%'], center: ['40%', '50%'],
+    roseType: 'area',
+    label: { fontSize: 12 },
+    data: DATA.litSub.map(s=>({value: s.value, name: s.name}))
+  }]
+});
+
+// Responsive resize
+window.addEventListener('resize', () => {
+  document.querySelectorAll('[id^="chart-"]').forEach(el => {
+    const instance = echarts.getInstanceByDom(el);
+    if (instance) instance.resize();
+  });
+});
+</script>
+</body>
+</html>
